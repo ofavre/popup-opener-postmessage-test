@@ -17,7 +17,7 @@ window.onload = function() {
 function log(msg) {
   var logEl = document.getElementById('log');
   var li = document.createElement('LI');
-  li.appendChild(document.createTextNode(new Date().toUTCString() + ': '));
+  li.appendChild(document.createTextNode(new Date().toLocaleTimeString() + ': '));
   li.appendChild(document.createTextNode(msg));
   logEl.appendChild(li);
 }
