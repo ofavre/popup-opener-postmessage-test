@@ -1,0 +1,105 @@
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <script>
+var popup;
+var pingPopupInterval;
+var pingOpenerInterval;
+
+window.onload = function() {
+  window.addEventListener('message', onMessage);
+  document.getElementById('chkPingPopup').disabled = true;
+  if (!window.opener) {
+    document.getElementById('chkPingOpener').disabled = true;
+  }
+}
+
+function log(msg) {
+  var logEl = document.getElementById('log');
+  var li = document.createElement('LI');
+  li.appendChild(document.createTextNode(new Date().toUTCString() + ': '));
+  li.appendChild(document.createTextNode(msg));
+  logEl.appendChild(li);
+}
+
+function openPopup() {
+  popup = window.open(location.href, '_blank');
+  document.getElementById('chkPingPopup').disabled = false;
+  log('Popup opened');
+}
+
+function doPing(message, target) {
+  var channel = new MessageChannel();
+  var transferList = [];
+  channel.port1.onmessage = onMessage;
+  if (document.getElementById('chkChannels').checked) {
+    transferList.push(channel.port2);
+  }
+  target.postMessage(message, target.location.origin, transferList);
+}
+
+function pingPopup() {
+  doPing({type: 'ping', who: 'popup'}, popup);
+}
+
+function pingOpener() {
+  doPing({type: 'ping', who: 'opener'}, window.opener);
+}
+
+function onMessage(event) {
+  if (event.data && event.data.type) {
+    if (event.data.type === 'ping') {
+      var target;
+      if (event.data.who === 'popup') {
+        target = window.opener;
+      } else if (event.data.who === 'opener') {
+        target = popup;
+      }
+      if (event.ports.length) {
+        log('Got ' + event.data.type + ' ' + event.data.who + ', responding in channel');
+        event.ports[0].postMessage({type: 'pong', who: event.data.who});
+      } else {
+        log('Got ' + event.data.type + ' ' + event.data.who + ', responding globally');
+        target.postMessage({type: 'pong', who: event.data.who}, target.location.origin);
+      }
+    } else if (event.data.type === 'pong') {
+      if (event.target instanceof MessagePort) {
+        log('Got ' + event.data.type + ' ' + event.data.who + ', from channel');
+      } else {
+        log('Got ' + event.data.type + ' ' + event.data.who + ', globally');
+      }
+    } else {
+      log('Got ' + event.data.type);
+    }
+  } else {
+    console.warn('Got unknown message', event);
+    log('Got unknown message');
+  }
+}
+
+function updatePingPopup(event) {
+  clearInterval(pingPopupInterval);
+  pingPopupInterval = undefined;
+  if (event.target.checked) {
+    pingPopupInterval = setInterval(pingPopup, 1000);
+  }
+}
+
+function updatePingOpener(event) {
+  clearInterval(pingOpenerInterval);
+  pingOpenerInterval = undefined;
+  if (event.target.checked) {
+    pingOpenerInterval = setInterval(pingOpener, 1000);
+  }
+}
+  </script>
+</head>
+<body>
+  <button onclick="openPopup();">Open popup</button>
+  <label><input id="chkPingPopup"  type="checkbox" onchange="updatePingPopup(event);"> Ping popup</label>
+  <label><input id="chkPingOpener" type="checkbox" onchange="updatePingOpener(event);"> Ping opener</label>
+  <label><input id="chkChannels" type="checkbox"> Use channels</label>
+  <ol id="log">
+  </ol>
+</body>
+</html>
